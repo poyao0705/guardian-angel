@@ -12,16 +12,19 @@ from guardian_angel import (
 # Define rules in code
 rules = [
     Rule(
-        name="deny_prod_delete",
-        tool="github.delete_branch",
+        name="deny_high_risk_delete",
+        tool="resource.delete",
         decision=DENY,
-        attributes={"environment": "prod"},
+        attributes={"context.risk_level": "high"},
     ),
     Rule(
-        name="require_high_risk_merge",
-        tool="github.merge_pr",
+        name="require_external_tenant_approval",
+        tool="resource.update",
         decision=REQUIRE_APPROVAL,
-        attributes={"risk_level": "high"},
+        attributes={
+            "subject.tenant_id": "external",
+            "resource.environment": "prod",
+        },
     ),
 ]
 
@@ -30,23 +33,35 @@ guard = GuardianAngel(rules=rules)
 # Evaluate requests
 requests = [
     ActionRequest(
-        tool="github.delete_branch",
-        attributes={"environment": "prod"},
-        agent_id="cleanup-agent",
+        tool="resource.delete",
+        request_id="req-001",
+        attributes={
+            "context.risk_level": "high",
+            "subject.role": "developer",
+        },
     ),
     ActionRequest(
-        tool="github.merge_pr",
-        action="merge",
-        attributes={"risk_level": "high"},
-        agent_id="release-agent",
-        identity={"user_id": "michael", "roles": ["developer"]},
+        tool="resource.update",
+        request_id="req-002",
+        attributes={
+            "subject.tenant_id": "external",
+            "resource.environment": "prod",
+            "agent.trust_level": "low",
+        },
     ),
     ActionRequest(
-        tool="github.merge_pr",
-        action="merge",
-        attributes={"risk_level": "low"},
+        tool="resource.update",
+        request_id="req-003",
+        attributes={
+            "subject.tenant_id": "internal",
+            "resource.environment": "prod",
+        },
     ),
-    ActionRequest(tool="slack.send_message"),
+    ActionRequest(
+        tool="resource.read",
+        request_id="req-004",
+        attributes={"subject.role": "viewer"},
+    ),
 ]
 
 for req in requests:

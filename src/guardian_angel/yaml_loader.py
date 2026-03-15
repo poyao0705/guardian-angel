@@ -7,6 +7,7 @@ from .exceptions import InvalidPolicyError
 from .rule import Rule
 
 _REQUIRED_RULE_FIELDS = ("name", "tool", "decision")
+_ALLOWED_RULE_FIELDS = {"name", "tool", "decision", "attributes"}
 _VALID_DECISIONS = {ALLOW, DENY, REQUIRE_APPROVAL}
 
 
@@ -51,10 +52,16 @@ def _build_rules(raw_rules: list) -> list[Rule]:
                     f"Rule at index {i} is missing required field '{field}'"
                 )
 
+        unknown_fields = sorted(set(entry) - _ALLOWED_RULE_FIELDS)
+        if unknown_fields:
+            raise InvalidPolicyError(
+                f"Rule at index {i} contains unsupported field(s) {unknown_fields!r}. "
+                "Use namespaced keys under 'attributes' instead."
+            )
+
         name = entry["name"]
         tool = entry["tool"]
         decision = entry["decision"]
-        action = entry.get("action")
         attributes = entry.get("attributes", {})
 
         if not isinstance(name, str) or not name.strip():
@@ -70,10 +77,6 @@ def _build_rules(raw_rules: list) -> list[Rule]:
                 f"Rule at index {i}: 'decision' must be one of "
                 f"{sorted(_VALID_DECISIONS)!r}, got {decision!r}"
             )
-        if action is not None and not isinstance(action, str):
-            raise InvalidPolicyError(
-                f"Rule at index {i}: 'action' must be a string"
-            )
         if not isinstance(attributes, dict):
             raise InvalidPolicyError(
                 f"Rule at index {i}: 'attributes' must be a mapping"
@@ -84,7 +87,6 @@ def _build_rules(raw_rules: list) -> list[Rule]:
                 name=name,
                 tool=tool,
                 decision=decision,
-                action=action,
                 attributes=attributes,
             )
         )

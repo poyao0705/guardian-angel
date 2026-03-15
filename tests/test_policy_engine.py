@@ -20,48 +20,69 @@ class TestRuleMatching:
         request = ActionRequest(tool="github.delete_branch")
         assert not rule.matches(request)
 
-    def test_action_match(self):
-        rule = Rule(name="r1", tool="github.pr", action="merge", decision=DENY)
-        request = ActionRequest(tool="github.pr", action="merge")
-        assert rule.matches(request)
-
-    def test_action_mismatch(self):
-        rule = Rule(name="r1", tool="github.pr", action="merge", decision=DENY)
-        request = ActionRequest(tool="github.pr", action="close")
-        assert not rule.matches(request)
-
-    def test_action_not_specified_in_rule_matches_any(self):
-        rule = Rule(name="r1", tool="github.pr", decision=DENY)
-        request = ActionRequest(tool="github.pr", action="merge")
-        assert rule.matches(request)
-
     def test_attribute_match(self):
         rule = Rule(
-            name="r1", tool="deploy", decision=DENY, attributes={"env": "prod"}
+            name="r1",
+            tool="deploy",
+            decision=DENY,
+            attributes={"resource.environment": "prod"},
         )
-        request = ActionRequest(tool="deploy", attributes={"env": "prod"})
+        request = ActionRequest(
+            tool="deploy",
+            attributes={"resource.environment": "prod"},
+        )
         assert rule.matches(request)
 
     def test_attribute_mismatch(self):
         rule = Rule(
-            name="r1", tool="deploy", decision=DENY, attributes={"env": "prod"}
+            name="r1",
+            tool="deploy",
+            decision=DENY,
+            attributes={"resource.environment": "prod"},
         )
-        request = ActionRequest(tool="deploy", attributes={"env": "staging"})
+        request = ActionRequest(
+            tool="deploy",
+            attributes={"resource.environment": "staging"},
+        )
         assert not rule.matches(request)
 
     def test_attribute_missing_from_request(self):
         rule = Rule(
-            name="r1", tool="deploy", decision=DENY, attributes={"env": "prod"}
+            name="r1",
+            tool="deploy",
+            decision=DENY,
+            attributes={"resource.environment": "prod"},
         )
         request = ActionRequest(tool="deploy")
         assert not rule.matches(request)
 
     def test_extra_request_attributes_still_match(self):
         rule = Rule(
-            name="r1", tool="deploy", decision=DENY, attributes={"env": "prod"}
+            name="r1",
+            tool="deploy",
+            decision=DENY,
+            attributes={"resource.environment": "prod"},
         )
         request = ActionRequest(
-            tool="deploy", attributes={"env": "prod", "region": "us-east-1"}
+            tool="deploy",
+            attributes={
+                "resource.environment": "prod",
+                "resource.region": "us-east-1",
+            },
+        )
+        assert rule.matches(request)
+
+    def test_request_id_is_reserved_but_not_used_for_matching(self):
+        rule = Rule(
+            name="r1",
+            tool="deploy",
+            decision=DENY,
+            attributes={"context.risk_level": "high"},
+        )
+        request = ActionRequest(
+            tool="deploy",
+            attributes={"context.risk_level": "high"},
+            request_id="req-123",
         )
         assert rule.matches(request)
 
@@ -117,12 +138,15 @@ class TestPolicyEngine:
                     name="approve_prod",
                     tool="deploy",
                     decision=REQUIRE_APPROVAL,
-                    attributes={"env": "prod"},
+                    attributes={"resource.environment": "prod"},
                 )
             ]
         )
         decision = engine.evaluate(
-            ActionRequest(tool="deploy", attributes={"env": "prod"})
+            ActionRequest(
+                tool="deploy",
+                attributes={"resource.environment": "prod"},
+            )
         )
         assert decision.status == REQUIRE_APPROVAL
         assert decision.rule_name == "approve_prod"

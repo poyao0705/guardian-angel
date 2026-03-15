@@ -29,11 +29,11 @@ print(f"   Result: {result}\n")
 # 2. Denied: matches block_sensitive_action rule
 print("2. Deleting a high-risk resource (should be denied):")
 try:
-    delete_resource("doc-123", attributes={"risk_level": "high"})
+    delete_resource("doc-123", attributes={"context.risk_level": "high"})
 except PolicyDeniedError as e:
     print(f"   Denied: {e}\n")
 
 # 3. Allowed: same tool, but attributes do not match the deny rule
 print("3. Deleting a low-risk resource (should be allowed):")
-result = delete_resource("doc-456", attributes={"risk_level": "low"})
+result = delete_resource("doc-456", attributes={"context.risk_level": "low"})
 print(f"   Result: {result}")

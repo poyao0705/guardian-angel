@@ -17,20 +17,21 @@ def _write_yaml(content: str) -> str:
 
 class TestLoadPolicyFile:
     def test_valid_yaml_loads_rules(self):
-        path = _write_yaml("""
+        path = _write_yaml(
+            """
 rules:
   - name: deny_prod_delete
     tool: github.delete_branch
     attributes:
-      environment: prod
+      resource.environment: prod
     decision: deny
-  - name: require_merge_approval
+  - name: require_high_risk_merge
     tool: github.merge_pr
-    action: merge
     attributes:
-      risk_level: high
+      context.risk_level: high
     decision: require_approval
-""")
+"""
+        )
         try:
             rules = load_policy_file(path)
             assert len(rules) == 2
@@ -39,27 +40,26 @@ rules:
             assert rules[0].name == "deny_prod_delete"
             assert rules[0].tool == "github.delete_branch"
             assert rules[0].decision == "deny"
-            assert rules[0].attributes == {"environment": "prod"}
-            assert rules[0].action is None
+            assert rules[0].attributes == {"resource.environment": "prod"}
 
-            assert rules[1].name == "require_merge_approval"
-            assert rules[1].action == "merge"
-            assert rules[1].attributes == {"risk_level": "high"}
+            assert rules[1].name == "require_high_risk_merge"
+            assert rules[1].attributes == {"context.risk_level": "high"}
         finally:
             os.unlink(path)
 
     def test_minimal_rule(self):
-        path = _write_yaml("""
+        path = _write_yaml(
+            """
 rules:
   - name: block_all_deploys
     tool: deploy
     decision: deny
-""")
+"""
+        )
         try:
             rules = load_policy_file(path)
             assert len(rules) == 1
             assert rules[0].attributes == {}
-            assert rules[0].action is None
         finally:
             os.unlink(path)
 
@@ -72,11 +72,13 @@ rules:
             os.unlink(path)
 
     def test_missing_name_field_raises(self):
-        path = _write_yaml("""
+        path = _write_yaml(
+            """
 rules:
   - tool: deploy
     decision: deny
-""")
+"""
+        )
         try:
             with pytest.raises(InvalidPolicyError, match="missing required field 'name'"):
                 load_policy_file(path)
@@ -84,11 +86,13 @@ rules:
             os.unlink(path)
 
     def test_missing_tool_field_raises(self):
-        path = _write_yaml("""
+        path = _write_yaml(
+            """
 rules:
   - name: block
     decision: deny
-""")
+"""
+        )
         try:
             with pytest.raises(InvalidPolicyError, match="missing required field 'tool'"):
                 load_policy_file(path)
@@ -96,11 +100,13 @@ rules:
             os.unlink(path)
 
     def test_missing_decision_field_raises(self):
-        path = _write_yaml("""
+        path = _write_yaml(
+            """
 rules:
   - name: block
     tool: deploy
-""")
+"""
+        )
         try:
             with pytest.raises(InvalidPolicyError, match="missing required field 'decision'"):
                 load_policy_file(path)
@@ -136,12 +142,14 @@ rules:
             os.unlink(path)
 
     def test_invalid_decision_value_raises(self):
-        path = _write_yaml("""
+        path = _write_yaml(
+            """
 rules:
   - name: bad
     tool: deploy
     decision: maybe
-""")
+"""
+        )
         try:
             with pytest.raises(InvalidPolicyError, match="'decision' must be one of"):
                 load_policy_file(path)
@@ -149,13 +157,15 @@ rules:
             os.unlink(path)
 
     def test_attributes_not_a_mapping_raises(self):
-        path = _write_yaml("""
+        path = _write_yaml(
+            """
 rules:
   - name: bad
     tool: deploy
     decision: deny
     attributes: just_a_string
-""")
+"""
+        )
         try:
             with pytest.raises(InvalidPolicyError, match="'attributes' must be a mapping"):
                 load_policy_file(path)
@@ -163,28 +173,52 @@ rules:
             os.unlink(path)
 
     def test_empty_name_raises(self):
-        path = _write_yaml("""
+        path = _write_yaml(
+            """
 rules:
   - name: ""
     tool: deploy
     decision: deny
-""")
+"""
+        )
         try:
             with pytest.raises(InvalidPolicyError, match="'name' must be a non-empty string"):
                 load_policy_file(path)
         finally:
             os.unlink(path)
 
-    def test_non_string_action_raises(self):
-        path = _write_yaml("""
+    def test_unsupported_action_field_raises(self):
+        path = _write_yaml(
+            """
 rules:
   - name: bad
     tool: deploy
-    action: 123
+    action: merge
     decision: deny
-""")
+"""
+        )
         try:
-            with pytest.raises(InvalidPolicyError, match="'action' must be a string"):
+            with pytest.raises(InvalidPolicyError, match=r"unsupported field\(s\)"):
+                load_policy_file(path)
+        finally:
+            os.unlink(path)
+
+    def test_unknown_rule_field_raises(self):
+        path = _write_yaml(
+            """
+rules:
+  - name: bad
+    tool: deploy
+    decision: deny
+    subject:
+      role: developer
+"""
+        )
+        try:
+            with pytest.raises(
+                InvalidPolicyError,
+                match="Use namespaced keys under 'attributes'",
+            ):
                 load_policy_file(path)
         finally:
             os.unlink(path)

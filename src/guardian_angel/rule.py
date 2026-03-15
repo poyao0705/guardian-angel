@@ -6,8 +6,8 @@ from .request import ActionRequest
 class Rule:
     """Internal runtime rule representation for policy evaluation.
 
-    Evaluation uses exact matching on tool, action (if specified), and
-    all key/value pairs in attributes.
+    Evaluation uses exact matching on tool and all key/value pairs in
+    attributes.
     """
 
     def __init__(
@@ -15,20 +15,15 @@ class Rule:
         name: str,
         tool: str,
         decision: str,
-        action: str | None = None,
         attributes: dict | None = None,
     ):
         self.name = name
         self.tool = tool
         self.decision = decision
-        self.action = action
         self.attributes = attributes or {}
 
     def matches(self, request: ActionRequest) -> bool:
         if self.tool != request.tool:
-            return False
-
-        if self.action is not None and self.action != request.action:
             return False
 
         for key, value in self.attributes.items():

@@ -29,13 +29,13 @@ class GuardianAngel:
         """Evaluate an ActionRequest against loaded rules and return a Decision."""
         return self.engine.evaluate(request)
 
-    def tool(self, name: str, action: str | None = None):
+    def tool(self, name: str):
         """Decorator that wraps a function with policy enforcement.
 
         Usage::
 
-            @guard.tool(name="github.merge_pr", action="merge")
-            def merge_pr(pr_id, *, attributes=None):
+            @guard.tool(name="resource.delete")
+            def delete_resource(resource_id, *, attributes=None):
                 ...
         """
-        return make_tool_decorator(self, name, action)
+        return make_tool_decorator(self, name)

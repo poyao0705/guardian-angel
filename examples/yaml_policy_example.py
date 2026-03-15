@@ -10,8 +10,14 @@ guard = GuardianAngel.from_yaml(policy_path)
 
 # Evaluate some requests
 requests = [
-    ActionRequest(tool="resource.delete", attributes={"risk_level": "high"}),
-    ActionRequest(tool="resource.delete", attributes={"risk_level": "low"}),
+    ActionRequest(
+        tool="resource.delete",
+        attributes={"context.risk_level": "high"},
+    ),
+    ActionRequest(
+        tool="resource.delete",
+        attributes={"context.risk_level": "low"},
+    ),
     ActionRequest(tool="resource.read"),
 ]
 
