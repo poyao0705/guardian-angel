@@ -1,5 +1,5 @@
 [project]
-name = "agentguard"
+name = "agentguard-python"
 version = "0.1.0"
 description = "Policy engine for governing AI agent tool execution."
 readme = "README.md"

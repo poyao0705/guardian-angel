@@ -11,7 +11,7 @@ Autonomous AI agents can call tools — merge PRs, delete branches, send message
 ## Install
 
 ```bash
-pip install -e .
+pip install agentguard-python
 ```
 
 ## Quickstart
