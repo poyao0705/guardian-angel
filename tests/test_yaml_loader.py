@@ -135,3 +135,57 @@ rules:
         finally:
             os.unlink(path)
 
+    def test_invalid_decision_value_raises(self):
+        path = _write_yaml("""
+rules:
+  - name: bad
+    tool: deploy
+    decision: maybe
+""")
+        try:
+            with pytest.raises(InvalidPolicyError, match="'decision' must be one of"):
+                load_policy_file(path)
+        finally:
+            os.unlink(path)
+
+    def test_attributes_not_a_mapping_raises(self):
+        path = _write_yaml("""
+rules:
+  - name: bad
+    tool: deploy
+    decision: deny
+    attributes: just_a_string
+""")
+        try:
+            with pytest.raises(InvalidPolicyError, match="'attributes' must be a mapping"):
+                load_policy_file(path)
+        finally:
+            os.unlink(path)
+
+    def test_empty_name_raises(self):
+        path = _write_yaml("""
+rules:
+  - name: ""
+    tool: deploy
+    decision: deny
+""")
+        try:
+            with pytest.raises(InvalidPolicyError, match="'name' must be a non-empty string"):
+                load_policy_file(path)
+        finally:
+            os.unlink(path)
+
+    def test_non_string_action_raises(self):
+        path = _write_yaml("""
+rules:
+  - name: bad
+    tool: deploy
+    action: 123
+    decision: deny
+""")
+        try:
+            with pytest.raises(InvalidPolicyError, match="'action' must be a string"):
+                load_policy_file(path)
+        finally:
+            os.unlink(path)
+

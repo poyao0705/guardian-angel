@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import yaml
 
+from .decision import ALLOW, DENY, REQUIRE_APPROVAL
 from .exceptions import InvalidPolicyError
 from .rule import Rule
 
 _REQUIRED_RULE_FIELDS = ("name", "tool", "decision")
+_VALID_DECISIONS = {ALLOW, DENY, REQUIRE_APPROVAL}
 
 
 def load_policy_file(path: str) -> list[Rule]:
@@ -49,13 +51,41 @@ def _build_rules(raw_rules: list) -> list[Rule]:
                     f"Rule at index {i} is missing required field '{field}'"
                 )
 
+        name = entry["name"]
+        tool = entry["tool"]
+        decision = entry["decision"]
+        action = entry.get("action")
+        attributes = entry.get("attributes", {})
+
+        if not isinstance(name, str) or not name.strip():
+            raise InvalidPolicyError(
+                f"Rule at index {i}: 'name' must be a non-empty string"
+            )
+        if not isinstance(tool, str) or not tool.strip():
+            raise InvalidPolicyError(
+                f"Rule at index {i}: 'tool' must be a non-empty string"
+            )
+        if decision not in _VALID_DECISIONS:
+            raise InvalidPolicyError(
+                f"Rule at index {i}: 'decision' must be one of "
+                f"{sorted(_VALID_DECISIONS)!r}, got {decision!r}"
+            )
+        if action is not None and not isinstance(action, str):
+            raise InvalidPolicyError(
+                f"Rule at index {i}: 'action' must be a string"
+            )
+        if not isinstance(attributes, dict):
+            raise InvalidPolicyError(
+                f"Rule at index {i}: 'attributes' must be a mapping"
+            )
+
         rules.append(
             Rule(
-                name=entry["name"],
-                tool=entry["tool"],
-                decision=entry["decision"],
-                action=entry.get("action"),
-                attributes=entry.get("attributes", {}),
+                name=name,
+                tool=tool,
+                decision=decision,
+                action=action,
+                attributes=attributes,
             )
         )
 

@@ -6,7 +6,7 @@ AgentGuard intercepts agent actions, evaluates policy, and decides whether they 
 
 ## Why
 
-Autonomous AI agents can call tools — merge PRs, delete branches, send messages, deploy services. AgentGuard gives you deterministic, auditable control over what agents are allowed to do.
+Autonomous AI agents can call tools — merge PRs, delete branches, send messages, deploy services. AgentGuard gives you deterministic, policy-based control over what agents are allowed to do.
 
 ## Install
 
