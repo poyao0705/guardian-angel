@@ -3,8 +3,8 @@ import tempfile
 
 import pytest
 
-from agentguard import AgentGuard, InvalidPolicyError, Rule
-from agentguard.yaml_loader import load_policy_file, load_policy_file_async
+from agentguard import InvalidPolicyError, Rule
+from agentguard.yaml_loader import load_policy_file
 
 
 def _write_yaml(content: str) -> str:
@@ -135,68 +135,3 @@ rules:
         finally:
             os.unlink(path)
 
-
-class TestLoadPolicyFileAsync:
-    @pytest.mark.asyncio
-    async def test_valid_yaml_loads_rules(self):
-        path = _write_yaml("""
-rules:
-  - name: deny_prod_delete
-    tool: github.delete_branch
-    attributes:
-      environment: prod
-    decision: deny
-  - name: require_merge_approval
-    tool: github.merge_pr
-    action: merge
-    decision: require_approval
-""")
-        try:
-            rules = await load_policy_file_async(path)
-            assert len(rules) == 2
-            assert rules[0].name == "deny_prod_delete"
-            assert rules[1].action == "merge"
-        finally:
-            os.unlink(path)
-
-    @pytest.mark.asyncio
-    async def test_file_not_found_raises(self):
-        with pytest.raises(InvalidPolicyError, match="Policy file not found"):
-            await load_policy_file_async("/nonexistent/path/policy.yaml")
-
-    @pytest.mark.asyncio
-    async def test_malformed_yaml_raises(self):
-        path = _write_yaml("{{invalid yaml: [")
-        try:
-            with pytest.raises(InvalidPolicyError, match="Malformed YAML"):
-                await load_policy_file_async(path)
-        finally:
-            os.unlink(path)
-
-    @pytest.mark.asyncio
-    async def test_missing_rules_key_raises(self):
-        path = _write_yaml("policies:\n  - name: x\n")
-        try:
-            with pytest.raises(InvalidPolicyError, match="top-level 'rules' key"):
-                await load_policy_file_async(path)
-        finally:
-            os.unlink(path)
-
-
-class TestFromYamlAsync:
-    @pytest.mark.asyncio
-    async def test_from_yaml_async_loads(self):
-        path = _write_yaml("""
-rules:
-  - name: block
-    tool: deploy
-    decision: deny
-""")
-        try:
-            guard = await AgentGuard.from_yaml_async(path)
-            from agentguard import ActionRequest, DENY
-
-            decision = guard.authorize(ActionRequest(tool="deploy"))
-            assert decision.status == DENY
-        finally:
-            os.unlink(path)

@@ -25,14 +25,6 @@ class AgentGuard:
         rules = load_policy_file(path)
         return cls(rules=rules)
 
-    @classmethod
-    async def from_yaml_async(cls, path: str) -> AgentGuard:
-        """Create an AgentGuard instance from a YAML policy file (async)."""
-        from .yaml_loader import load_policy_file_async
-
-        rules = await load_policy_file_async(path)
-        return cls(rules=rules)
-
     def authorize(self, request):
         """Evaluate an ActionRequest against loaded rules and return a Decision."""
         return self.engine.evaluate(request)

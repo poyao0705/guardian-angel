@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import aiofiles
 import yaml
 
 from .exceptions import InvalidPolicyError
@@ -19,25 +18,6 @@ def load_policy_file(path: str) -> list[Rule]:
             data = yaml.safe_load(f)
     except FileNotFoundError as exc:
         raise InvalidPolicyError(f"Policy file not found: {path}") from exc
-    except yaml.YAMLError as exc:
-        raise InvalidPolicyError(f"Malformed YAML in {path}: {exc}") from exc
-
-    return _parse_rules(data, path)
-
-
-async def load_policy_file_async(path: str) -> list[Rule]:
-    """Async variant of load_policy_file using aiofiles.
-
-    Raises InvalidPolicyError on missing/malformed content.
-    """
-    try:
-        async with aiofiles.open(path) as f:
-            content = await f.read()
-    except FileNotFoundError as exc:
-        raise InvalidPolicyError(f"Policy file not found: {path}") from exc
-
-    try:
-        data = yaml.safe_load(content)
     except yaml.YAMLError as exc:
         raise InvalidPolicyError(f"Malformed YAML in {path}: {exc}") from exc
 
