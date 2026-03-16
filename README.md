@@ -19,13 +19,13 @@ pip install guardian-angel
 ## Quickstart
 
 ```python
-from guardian_angel import GuardianAngel, ActionRequest, Rule, DENY
+from guardian_angel import GuardianAngel, ActionRequest, DecisionStatus, Rule
 
 guard = GuardianAngel(rules=[
   Rule(
     name="block_sensitive_action",
     tool="resource.delete",
-    decision=DENY,
+    decision=DecisionStatus.DENY,
     attributes={"context.risk_level": "high"},
   ),
 ])
@@ -70,6 +70,102 @@ decision = guard.authorize(
 )
 print(decision.status)  # "deny"
 ```
+
+## Predicate Rules With `when`
+
+Use `when` when simple exact attribute matching is not expressive enough.
+
+You can define:
+
+- a single condition with `when`
+- an `all` group where every child predicate must match
+- an `any` group where at least one child predicate must match
+- a `not` or `unless` wrapper to negate a predicate
+- `value_from` to compare one request field against another request field
+
+Python example:
+
+```python
+from guardian_angel import ActionRequest, DecisionStatus, GuardianAngel, Rule
+from guardian_angel.rule import AllOf, AnyOf, Condition, Not
+
+guard = GuardianAngel(rules=[
+  Rule(
+    name="deny_cross_tenant_delete",
+    tool="resource.delete",
+    decision=DecisionStatus.DENY,
+    when=Condition(
+      key="subject.tenant_id",
+      op="ne",
+      value_from="resource.tenant_id",
+    ),
+  ),
+  Rule(
+    name="require_prod_update_approval",
+    tool="resource.update",
+    decision=DecisionStatus.REQUIRE_APPROVAL,
+    when=AllOf(items=(
+      Condition(key="resource.environment", op="eq", value="prod"),
+      AnyOf(items=(
+        Condition(key="context.change_type", op="in", value=["schema", "permissions"]),
+        Condition(key="context.risk_score", op="gte", value=7),
+      )),
+      Not(item=Condition(key="subject.role", op="eq", value="sre")),
+    )),
+  ),
+])
+
+decision = guard.authorize(
+  ActionRequest(
+    tool="resource.update",
+    attributes={
+      "resource.environment": "prod",
+      "context.change_type": "permissions",
+      "context.risk_score": 5,
+      "subject.role": "developer",
+    },
+  )
+)
+```
+
+YAML example:
+
+```yaml
+rules:
+  - name: deny_cross_tenant_delete
+    tool: resource.delete
+    decision: deny
+    when:
+      key: subject.tenant_id
+      op: ne
+      value_from: resource.tenant_id
+
+  - name: deny_risky_prod_delete
+    tool: resource.delete
+    decision: deny
+    all:
+      - key: resource.environment
+        op: eq
+        value: prod
+      - any:
+          - key: context.risk_level
+            op: eq
+            value: high
+          - key: subject.role
+            op: ne
+            value: admin
+      - not:
+          key: agent.trust_level
+          op: eq
+          value: high
+```
+
+Supported operators:
+
+- `eq`, `ne`
+- `in`, `not_in`
+- `contains`, `not_contains`
+- `gt`, `gte`, `lt`, `lte`
 
 ## Request Shape
 

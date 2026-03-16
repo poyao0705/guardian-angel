@@ -1,9 +1,7 @@
 import pytest
 
 from guardian_angel import (
-    ALLOW,
-    DENY,
-    REQUIRE_APPROVAL,
+    DecisionStatus,
     GuardianAngel,
     ApprovalRequiredError,
     PolicyDeniedError,
@@ -28,7 +26,7 @@ class TestToolDecorator:
 
     def test_denied_tool_raises(self):
         guard = _make_guard(
-            Rule(name="block_delete", tool="delete_file", decision=DENY)
+            Rule(name="block_delete", tool="delete_file", decision=DecisionStatus.DENY)
         )
 
         @guard.tool(name="delete_file")
@@ -38,12 +36,12 @@ class TestToolDecorator:
         with pytest.raises(PolicyDeniedError) as exc_info:
             delete_file("/etc/passwd")
 
-        assert exc_info.value.decision.status == DENY
+        assert exc_info.value.decision.status == DecisionStatus.DENY
         assert exc_info.value.decision.rule_name == "block_delete"
 
     def test_require_approval_raises(self):
         guard = _make_guard(
-            Rule(name="approve_deploy", tool="deploy", decision=REQUIRE_APPROVAL)
+            Rule(name="approve_deploy", tool="deploy", decision=DecisionStatus.REQUIRE_APPROVAL)
         )
 
         @guard.tool(name="deploy")
@@ -53,7 +51,7 @@ class TestToolDecorator:
         with pytest.raises(ApprovalRequiredError) as exc_info:
             deploy("prod")
 
-        assert exc_info.value.decision.status == REQUIRE_APPROVAL
+        assert exc_info.value.decision.status == DecisionStatus.REQUIRE_APPROVAL
         assert exc_info.value.decision.rule_name == "approve_deploy"
 
     def test_attributes_from_kwargs_are_used(self):
@@ -61,7 +59,7 @@ class TestToolDecorator:
             Rule(
                 name="block_prod",
                 tool="deploy",
-                decision=DENY,
+                decision=DecisionStatus.DENY,
                 attributes={"resource.environment": "prod"},
             )
         )
@@ -83,7 +81,7 @@ class TestToolDecorator:
             Rule(
                 name="block_high_risk",
                 tool="github.pr",
-                decision=DENY,
+                decision=DecisionStatus.DENY,
                 attributes={"context.risk_level": "high"},
             )
         )
@@ -92,7 +90,7 @@ class TestToolDecorator:
         def merge_pr(pr_id, *, attributes=None, request_id=None):
             return "merged"
 
-        with pytest.raises(PolicyDeniedError):
+        with pytest.raises(PolicyDeniedError) as exc_info:
             merge_pr(
                 "42",
                 request_id="req-42",

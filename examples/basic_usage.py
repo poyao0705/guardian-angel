@@ -1,69 +1,125 @@
-"""Basic usage: create rules manually, authorize a request, inspect the decision."""
+"""Basic usage: build rules in code with condition, all, any, not, and value_from."""
 
-from guardian_angel import (
-    ALLOW,
-    DENY,
-    REQUIRE_APPROVAL,
-    ActionRequest,
-    GuardianAngel,
-    Rule,
-)
+from guardian_angel import ActionRequest, DecisionStatus, GuardianAngel, Rule
+from guardian_angel.rule import AllOf, AnyOf, Condition, Not
 
-# Define rules in code
 rules = [
     Rule(
-        name="deny_high_risk_delete",
+        name="deny_cross_tenant_delete",
         tool="resource.delete",
-        decision=DENY,
-        attributes={"context.risk_level": "high"},
+        decision=DecisionStatus.DENY,
+        when=Condition(
+            key="subject.tenant_id",
+            op="ne",
+            value_from="resource.tenant_id",
+        ),
     ),
     Rule(
-        name="require_external_tenant_approval",
+        name="deny_risky_prod_delete",
+        tool="resource.delete",
+        decision=DecisionStatus.DENY,
+        when=AllOf(
+            items=(
+                Condition(key="resource.environment", op="eq", value="prod"),
+                AnyOf(
+                    items=(
+                        Condition(key="context.risk_level", op="eq", value="high"),
+                        Condition(key="subject.role", op="ne", value="admin"),
+                    )
+                ),
+                Not(
+                    item=Condition(key="agent.trust_level", op="eq", value="high")
+                ),
+            )
+        ),
+    ),
+    Rule(
+        name="require_prod_update_approval",
         tool="resource.update",
-        decision=REQUIRE_APPROVAL,
-        attributes={
-            "subject.tenant_id": "external",
-            "resource.environment": "prod",
-        },
+        decision=DecisionStatus.REQUIRE_APPROVAL,
+        when=AllOf(
+            items=(
+                Condition(key="resource.environment", op="eq", value="prod"),
+                AnyOf(
+                    items=(
+                        Condition(
+                            key="context.change_type",
+                            op="in",
+                            value=["schema", "permissions"],
+                        ),
+                        Condition(key="context.risk_score", op="gte", value=7),
+                    )
+                ),
+                Not(item=Condition(key="subject.role", op="eq", value="sre")),
+            )
+        ),
     ),
 ]
 
 guard = GuardianAngel(rules=rules)
 
-# Evaluate requests
 requests = [
     ActionRequest(
         tool="resource.delete",
         request_id="req-001",
         attributes={
+            "subject.tenant_id": "acme",
+            "resource.tenant_id": "globex",
+            "resource.environment": "prod",
+            "context.risk_level": "low",
+            "subject.role": "admin",
+            "agent.trust_level": "high",
+        },
+    ),
+    ActionRequest(
+        tool="resource.delete",
+        request_id="req-002",
+        attributes={
+            "subject.tenant_id": "acme",
+            "resource.tenant_id": "acme",
+            "resource.environment": "prod",
             "context.risk_level": "high",
+            "subject.role": "developer",
+            "agent.trust_level": "medium",
+        },
+    ),
+    ActionRequest(
+        tool="resource.delete",
+        request_id="req-003",
+        attributes={
+            "subject.tenant_id": "acme",
+            "resource.tenant_id": "acme",
+            "resource.environment": "prod",
+            "context.risk_level": "low",
+            "subject.role": "admin",
+            "agent.trust_level": "high",
+        },
+    ),
+    ActionRequest(
+        tool="resource.update",
+        request_id="req-004",
+        attributes={
+            "resource.environment": "prod",
+            "context.change_type": "permissions",
+            "context.risk_score": 5,
             "subject.role": "developer",
         },
     ),
     ActionRequest(
         tool="resource.update",
-        request_id="req-002",
+        request_id="req-005",
         attributes={
-            "subject.tenant_id": "external",
             "resource.environment": "prod",
-            "agent.trust_level": "low",
+            "context.change_type": "metadata",
+            "context.risk_score": 2,
+            "subject.role": "sre",
         },
-    ),
-    ActionRequest(
-        tool="resource.update",
-        request_id="req-003",
-        attributes={
-            "subject.tenant_id": "internal",
-            "resource.environment": "prod",
-        },
-    ),
-    ActionRequest(
-        tool="resource.read",
-        request_id="req-004",
-        attributes={"subject.role": "viewer"},
     ),
 ]
 
 for req in requests:
     decision = guard.authorize(req)
-    print(f"Tool: {req.tool:<25} Decision: {decision.status:<20} Reason: {decision.reason}")
+    print(
+        f"{req.request_id}: tool={req.tool:<15} status={decision.status:<17} "
+        f"rule={decision.rule_name}"
+    )

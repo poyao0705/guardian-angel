@@ -1,22 +1,24 @@
 from guardian_angel import (
-    ALLOW,
-    DENY,
-    REQUIRE_APPROVAL,
+    DecisionStatus,
     ActionRequest,
     Decision,
+    GuardianAngel,
+    PolicyEvaluator,
     Rule,
 )
 from guardian_angel.policy_engine import PolicyEngine
 
+import pytest
+
 
 class TestRuleMatching:
     def test_exact_tool_match(self):
-        rule = Rule(name="r1", tool="github.merge_pr", decision=DENY)
+        rule = Rule(name="r1", tool="github.merge_pr", decision=DecisionStatus.DENY)
         request = ActionRequest(tool="github.merge_pr")
         assert rule.matches(request)
 
     def test_tool_mismatch(self):
-        rule = Rule(name="r1", tool="github.merge_pr", decision=DENY)
+        rule = Rule(name="r1", tool="github.merge_pr", decision=DecisionStatus.DENY)
         request = ActionRequest(tool="github.delete_branch")
         assert not rule.matches(request)
 
@@ -24,7 +26,7 @@ class TestRuleMatching:
         rule = Rule(
             name="r1",
             tool="deploy",
-            decision=DENY,
+            decision=DecisionStatus.DENY,
             attributes={"resource.environment": "prod"},
         )
         request = ActionRequest(
@@ -37,7 +39,7 @@ class TestRuleMatching:
         rule = Rule(
             name="r1",
             tool="deploy",
-            decision=DENY,
+            decision=DecisionStatus.DENY,
             attributes={"resource.environment": "prod"},
         )
         request = ActionRequest(
@@ -50,7 +52,7 @@ class TestRuleMatching:
         rule = Rule(
             name="r1",
             tool="deploy",
-            decision=DENY,
+            decision=DecisionStatus.DENY,
             attributes={"resource.environment": "prod"},
         )
         request = ActionRequest(tool="deploy")
@@ -60,7 +62,7 @@ class TestRuleMatching:
         rule = Rule(
             name="r1",
             tool="deploy",
-            decision=DENY,
+            decision=DecisionStatus.DENY,
             attributes={"resource.environment": "prod"},
         )
         request = ActionRequest(
@@ -76,7 +78,7 @@ class TestRuleMatching:
         rule = Rule(
             name="r1",
             tool="deploy",
-            decision=DENY,
+            decision=DecisionStatus.DENY,
             attributes={"context.risk_level": "high"},
         )
         request = ActionRequest(
@@ -90,45 +92,45 @@ class TestRuleMatching:
 class TestPolicyEngine:
     def test_exact_match_returns_decision(self):
         engine = PolicyEngine(
-            rules=[Rule(name="block", tool="deploy", decision=DENY)]
+            rules=[Rule(name="block", tool="deploy", decision=DecisionStatus.DENY)]
         )
         decision = engine.evaluate(ActionRequest(tool="deploy"))
-        assert decision.status == DENY
+        assert decision.status == DecisionStatus.DENY
         assert decision.rule_name == "block"
 
     def test_no_match_defaults_to_allow(self):
         engine = PolicyEngine(
-            rules=[Rule(name="block", tool="deploy", decision=DENY)]
+            rules=[Rule(name="block", tool="deploy", decision=DecisionStatus.DENY)]
         )
         decision = engine.evaluate(ActionRequest(tool="read"))
-        assert decision.status == ALLOW
+        assert decision.status == DecisionStatus.ALLOW
         assert decision.rule_name is None
 
     def test_empty_rules_defaults_to_allow(self):
         engine = PolicyEngine(rules=[])
         decision = engine.evaluate(ActionRequest(tool="anything"))
-        assert decision.status == ALLOW
+        assert decision.status == DecisionStatus.ALLOW
 
     def test_first_match_wins(self):
         engine = PolicyEngine(
             rules=[
-                Rule(name="deny_first", tool="deploy", decision=DENY),
-                Rule(name="allow_second", tool="deploy", decision=ALLOW),
+                Rule(name="deny_first", tool="deploy", decision=DecisionStatus.DENY),
+                Rule(name="allow_second", tool="deploy", decision=DecisionStatus.ALLOW),
             ]
         )
         decision = engine.evaluate(ActionRequest(tool="deploy"))
-        assert decision.status == DENY
+        assert decision.status == DecisionStatus.DENY
         assert decision.rule_name == "deny_first"
 
     def test_first_match_wins_reversed(self):
         engine = PolicyEngine(
             rules=[
-                Rule(name="allow_first", tool="deploy", decision=ALLOW),
-                Rule(name="deny_second", tool="deploy", decision=DENY),
+                Rule(name="allow_first", tool="deploy", decision=DecisionStatus.ALLOW),
+                Rule(name="deny_second", tool="deploy", decision=DecisionStatus.DENY),
             ]
         )
         decision = engine.evaluate(ActionRequest(tool="deploy"))
-        assert decision.status == ALLOW
+        assert decision.status == DecisionStatus.ALLOW
         assert decision.rule_name == "allow_first"
 
     def test_require_approval_decision(self):
@@ -137,7 +139,7 @@ class TestPolicyEngine:
                 Rule(
                     name="approve_prod",
                     tool="deploy",
-                    decision=REQUIRE_APPROVAL,
+                    decision=DecisionStatus.REQUIRE_APPROVAL,
                     attributes={"resource.environment": "prod"},
                 )
             ]
@@ -148,13 +150,59 @@ class TestPolicyEngine:
                 attributes={"resource.environment": "prod"},
             )
         )
-        assert decision.status == REQUIRE_APPROVAL
+        assert decision.status == DecisionStatus.REQUIRE_APPROVAL
         assert decision.rule_name == "approve_prod"
 
     def test_rule_name_populated_in_decision(self):
         engine = PolicyEngine(
-            rules=[Rule(name="my_rule", tool="x", decision=DENY)]
+            rules=[Rule(name="my_rule", tool="x", decision=DecisionStatus.DENY)]
         )
         decision = engine.evaluate(ActionRequest(tool="x"))
         assert decision.rule_name == "my_rule"
         assert "my_rule" in decision.reason
+
+
+class TestCustomEvaluator:
+    def test_custom_engine_is_used(self):
+        class AlwaysDeny:
+            def evaluate(self, request: ActionRequest) -> Decision:
+                return Decision(status=DecisionStatus.DENY, reason="custom deny")
+
+        guard = GuardianAngel(engine=AlwaysDeny())
+        decision = guard.authorize(ActionRequest(tool="anything"))
+        assert decision.status == DecisionStatus.DENY
+        assert decision.reason == "custom deny"
+
+    def test_custom_engine_satisfies_protocol(self):
+        class MyEngine:
+            def evaluate(self, request: ActionRequest) -> Decision:
+                return Decision(status=DecisionStatus.ALLOW, reason="ok")
+
+        assert isinstance(MyEngine(), PolicyEvaluator)
+
+    def test_rules_and_engine_raises(self):
+        class Dummy:
+            def evaluate(self, request: ActionRequest) -> Decision:
+                return Decision(status=DecisionStatus.ALLOW, reason="ok")
+
+        with pytest.raises(ValueError, match="not both"):
+            GuardianAngel(
+                rules=[Rule(name="r", tool="x", decision=DecisionStatus.DENY)],
+                engine=Dummy(),
+            )
+
+    def test_decorator_works_with_custom_engine(self):
+        class DenyAll:
+            def evaluate(self, request: ActionRequest) -> Decision:
+                return Decision(status=DecisionStatus.DENY, reason="nope")
+
+        guard = GuardianAngel(engine=DenyAll())
+
+        @guard.tool(name="my_tool")
+        def my_func():
+            return "ok"
+
+        from guardian_angel import PolicyDeniedError
+
+        with pytest.raises(PolicyDeniedError):
+            my_func()

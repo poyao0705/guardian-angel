@@ -1,4 +1,4 @@
-"""Load policy from a YAML file and evaluate requests."""
+"""Load a YAML policy that demonstrates condition, all, any, and not."""
 
 import os
 
@@ -12,15 +12,55 @@ guard = GuardianAngel.from_yaml(policy_path)
 requests = [
     ActionRequest(
         tool="resource.delete",
-        attributes={"context.risk_level": "high"},
+        request_id="req-201",
+        attributes={
+            "subject.tenant_id": "acme",
+            "resource.tenant_id": "globex",
+            "resource.environment": "prod",
+            "context.risk_level": "low",
+            "subject.role": "admin",
+            "agent.trust_level": "high",
+        },
     ),
     ActionRequest(
         tool="resource.delete",
-        attributes={"context.risk_level": "low"},
+        request_id="req-202",
+        attributes={
+            "subject.tenant_id": "acme",
+            "resource.tenant_id": "acme",
+            "resource.environment": "prod",
+            "context.risk_level": "high",
+            "subject.role": "developer",
+            "agent.trust_level": "medium",
+        },
     ),
-    ActionRequest(tool="resource.read"),
+    ActionRequest(
+        tool="resource.update",
+        request_id="req-203",
+        attributes={
+            "resource.environment": "prod",
+            "context.change_type": "permissions",
+            "context.risk_score": 5,
+            "subject.role": "developer",
+        },
+    ),
+    ActionRequest(
+        tool="resource.delete",
+        request_id="req-204",
+        attributes={
+            "subject.tenant_id": "acme",
+            "resource.tenant_id": "acme",
+            "resource.environment": "prod",
+            "context.risk_level": "low",
+            "subject.role": "admin",
+            "agent.trust_level": "high",
+        },
+    ),
 ]
 
 for req in requests:
     decision = guard.authorize(req)
-    print(f"Tool: {req.tool:<25} Decision: {decision.status:<20} Reason: {decision.reason}")
+    print(
+        f"{req.request_id}: tool={req.tool:<15} status={decision.status:<17} "
+        f"rule={decision.rule_name}"
+    )

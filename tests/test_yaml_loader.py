@@ -4,6 +4,7 @@ import tempfile
 import pytest
 
 from guardian_angel import InvalidPolicyError, Rule
+from guardian_angel.rule import AllOf, AnyOf, Condition, Not
 from guardian_angel.yaml_loader import load_policy_file
 
 
@@ -63,6 +64,84 @@ rules:
         finally:
             os.unlink(path)
 
+        def test_when_condition_loads_predicate(self):
+                path = _write_yaml(
+                        """
+rules:
+    - name: block_prod_delete
+        tool: resource.delete
+        decision: deny
+        when:
+            key: resource.environment
+            op: eq
+            value: prod
+"""
+                )
+                try:
+                        rules = load_policy_file(path)
+                        assert isinstance(rules[0].when, Condition)
+                        assert rules[0].when.key == "resource.environment"
+                        assert rules[0].when.op == "eq"
+                        assert rules[0].when.value == "prod"
+                finally:
+                        os.unlink(path)
+
+        def test_all_any_not_load_nested_predicates(self):
+                path = _write_yaml(
+                        """
+rules:
+    - name: review_prod_release
+        tool: deploy
+        decision: require_approval
+        all:
+            - key: resource.environment
+                op: eq
+                value: prod
+            - any:
+                    - key: context.risk_level
+                        op: eq
+                        value: high
+                    - key: subject.role
+                        op: ne
+                        value: admin
+            - not:
+                    key: agent.trust_level
+                    op: eq
+                    value: high
+"""
+                )
+                try:
+                        rules = load_policy_file(path)
+                        assert isinstance(rules[0].when, AllOf)
+
+                        all_of = rules[0].when
+                        assert isinstance(all_of.items[0], Condition)
+                        assert isinstance(all_of.items[1], AnyOf)
+                        assert isinstance(all_of.items[2], Not)
+                finally:
+                        os.unlink(path)
+
+        def test_condition_with_value_from_loads(self):
+                path = _write_yaml(
+                        """
+rules:
+    - name: require_tenant_match
+        tool: resource.read
+        decision: deny
+        when:
+            key: subject.tenant_id
+            op: ne
+            value_from: resource.tenant_id
+"""
+                )
+                try:
+                        rules = load_policy_file(path)
+                        assert isinstance(rules[0].when, Condition)
+                        assert rules[0].when.value_from == "resource.tenant_id"
+                        assert rules[0].when.value is None
+                finally:
+                        os.unlink(path)
+
     def test_missing_rules_key_raises(self):
         path = _write_yaml("policies:\n  - name: x\n")
         try:
@@ -70,6 +149,49 @@ rules:
                 load_policy_file(path)
         finally:
             os.unlink(path)
+
+        def test_multiple_predicate_fields_raise(self):
+                path = _write_yaml(
+                        """
+rules:
+    - name: bad
+        tool: deploy
+        decision: deny
+        when:
+            key: resource.environment
+            op: eq
+            value: prod
+        any:
+            - key: subject.role
+                op: eq
+                value: developer
+"""
+                )
+                try:
+                        with pytest.raises(InvalidPolicyError, match="only one predicate field"):
+                                load_policy_file(path)
+                finally:
+                        os.unlink(path)
+
+        def test_condition_requires_exactly_one_value_source(self):
+                path = _write_yaml(
+                        """
+rules:
+    - name: bad
+        tool: deploy
+        decision: deny
+        when:
+            key: resource.environment
+            op: eq
+            value: prod
+            value_from: context.target_environment
+"""
+                )
+                try:
+                        with pytest.raises(InvalidPolicyError, match="exactly one of 'value' or 'value_from'"):
+                                load_policy_file(path)
+                finally:
+                        os.unlink(path)
 
     def test_missing_name_field_raises(self):
         path = _write_yaml(

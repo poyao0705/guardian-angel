@@ -1,6 +1,21 @@
-from .decision import Decision, ALLOW
+from __future__ import annotations
+
+from typing import Protocol, runtime_checkable
+
+from .decision import Decision, DecisionStatus
 from .request import ActionRequest
 from .rule import Rule
+
+
+@runtime_checkable
+class PolicyEvaluator(Protocol):
+    """Interface for policy evaluation.
+
+    Implement this protocol to provide a custom evaluation strategy
+    (e.g., remote policy service, different matching semantics).
+    """
+
+    def evaluate(self, request: ActionRequest) -> Decision: ...
 
 
 class PolicyEngine:
@@ -22,4 +37,4 @@ class PolicyEngine:
                     rule_name=rule.name,
                 )
 
-        return Decision(status=ALLOW, reason="No matching rule; default allow")
+        return Decision(status=DecisionStatus.ALLOW, reason="No matching rule; default allow")

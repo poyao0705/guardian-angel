@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import functools
 
-from .decision import DENY, REQUIRE_APPROVAL
+from .decision import DecisionStatus
 from .exceptions import ApprovalRequiredError, PolicyDeniedError
 from .request import ActionRequest
 
@@ -24,9 +24,9 @@ def make_tool_decorator(guard, name: str):
 
             decision = guard.authorize(request)
 
-            if decision.status == DENY:
+            if decision.status == DecisionStatus.DENY:
                 raise PolicyDeniedError(decision)
-            if decision.status == REQUIRE_APPROVAL:
+            if decision.status == DecisionStatus.REQUIRE_APPROVAL:
                 raise ApprovalRequiredError(decision)
 
             return func(*args, **kwargs)
