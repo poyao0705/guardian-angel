@@ -74,8 +74,8 @@ Decision (allow / deny / require_approval)
 
 ## Roadmap
 
-- **v0.1** — Local policy evaluation, YAML rules, decorator *(current)*
-- **v0.2** — Stronger validation, policy linting, documented adapter conventions
+- **v0.1** — Local policy evaluation, YAML rules, decorator
+- **v0.2** — Stronger validation, policy linting, documented adapter conventions *(current)*
 - **v0.3** — `guardian-angel simulate` CLI, policy testing
 - **v0.4** — Lightweight framework adapters (LangGraph, OpenAI, CrewAI)
 - **v0.5+** — Remote policy sources, audit sinks, approval stores
