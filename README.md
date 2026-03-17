@@ -2,17 +2,18 @@
 
 **A lightweight Python SDK for governing AI agent tool execution.**
 
-GuardianAngel intercepts agent actions, evaluates policy, and decides whether they should be **allowed**, **denied**, or **require approval** — before the tool runs.
+GuardianAngel intercepts agent actions, evaluates policy, and returns **allow**, **deny**, or **require_approval** — before the tool runs.
 
 ## Install
 
 ```bash
 pip install guardian-angel
+
+# optional CLI
+pip install guardian-angel[cli]
 ```
 
 ## Quickstart
-
-Define rules in YAML:
 
 ```yaml
 # policy.yaml
@@ -29,55 +30,58 @@ rules:
         value: high
 ```
 
-Enforce them in Python:
-
 ```python
 from guardian_angel import GuardianAngel, ActionRequest
 
 guard = GuardianAngel.from_yaml("policy.yaml")
 
 decision = guard.authorize(
-  ActionRequest(
-    tool="resource.delete",
-    attributes={
-      "resource.environment": "prod",
-      "context.risk_level": "high",
-    },
-  )
+    ActionRequest(
+        tool="resource.delete",
+        attributes={
+            "resource.environment": "prod",
+            "context.risk_level": "high",
+        },
+    )
 )
 print(decision.status)  # "deny"
 ```
 
-Rules are evaluated top to bottom, first match wins. If no rule matches, the default decision is **allow**.
+First matching rule wins. No match → **allow**.
+
+## CLI
+
+```bash
+guardian-angel evaluate policy.yaml request.json
+guardian-angel evaluate policy.yaml request.json --explain
+guardian-angel --verbose evaluate policy.yaml request.json
+guardian-angel --version
+```
+
+`--explain` prints the matched rule and reason. `--verbose` adds input context.
 
 ## Features
 
-- **Attribute matching** — exact match on `attributes` fields.
-- **Predicate rules** — `when`, `all`, `any`, `not` with operators (`eq`, `ne`, `in`, `not_in`, `contains`, `gt`, `gte`, `lt`, `lte`, …).
-- **Cross-field comparison** — `value_from` to compare one request field against another.
-- **Tool decorator** — `@guard.tool(name="resource.delete")` to enforce policy automatically on Python functions.
-- **YAML or Python** — define rules in YAML files or construct `Rule` objects in code.
+- **Predicate rules** — `when`, `all`, `any`, `not` with operators (`eq`, `ne`, `in`, `not_in`, `contains`, `gt`, `gte`, `lt`, `lte`, …)
+- **Cross-field comparison** — `value_from` to compare one attribute against another
+- **Tool decorator** — `@guard.tool(name="...")` for automatic policy enforcement
+- **YAML or Python** — define rules in files or construct `Rule` objects in code
+- **CLI** — evaluate policies from the command line with colored output
 
 See [`examples/`](examples/) for more.
 
 ## How It Works
 
 ```
-Agent tool call
-      ↓
-ActionRequest(tool, attributes, request_id?)
-      ↓
-GuardianAngel.authorize(request)
-      ↓
-Decision (allow / deny / require_approval)
+Agent tool call → ActionRequest → GuardianAngel.authorize() → Decision
 ```
 
 ## Roadmap
 
 - **v0.1** — Local policy evaluation, YAML rules, decorator
-- **v0.2** — Stronger validation, policy linting, documented adapter conventions *(current)*
-- **v0.3** — `guardian-angel simulate` CLI, policy testing
-- **v0.4** — Lightweight framework adapters (LangGraph, OpenAI, CrewAI)
+- **v0.2** — Stronger validation, policy linting
+- **v0.3** — CLI with `evaluate`, `--explain`, `--verbose` *(current)*
+- **v0.4** — Framework adapters (LangGraph, OpenAI, CrewAI)
 - **v0.5+** — Remote policy sources, audit sinks, approval stores
 
 ## License
