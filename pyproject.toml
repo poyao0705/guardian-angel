@@ -20,10 +20,19 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Security",
 ]
-dependencies = ["pyyaml>=6.0"]
+dependencies = [
+    "pyyaml>=6.0",
+]
 
 [project.optional-dependencies]
+cli = [
+    "rich>=14.3.3",
+    "typer>=0.24.1",
+]
 test = ["pytest>=7.0"]
+
+[project.scripts]
+guardian-angel = "guardian_angel.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/poyao0705/guardian-angel"

@@ -6,7 +6,7 @@ from guardian_angel import (
     PolicyEvaluator,
     Rule,
 )
-from guardian_angel.policy_engine import PolicyEngine
+from guardian_angel.core.policy_engine import PolicyEngine
 
 import pytest
 

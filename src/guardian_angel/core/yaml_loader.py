@@ -20,6 +20,7 @@ def load_policy_file(path: str) -> list[Rule]:
 
     Raises InvalidPolicyError on missing/malformed content.
     """
+
     try:
         with open(path, encoding="utf-8") as f:
             data = yaml.safe_load(f)

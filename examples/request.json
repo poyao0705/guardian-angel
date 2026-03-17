@@ -1,0 +1,10 @@
+{
+  "tool": "resource.update",
+  "request_id": "req-cli-001",
+  "attributes": {
+    "resource.environment": "prod",
+    "context.change_type": "permissions",
+    "context.risk_score": 5,
+    "subject.role": "developer"
+  }
+}

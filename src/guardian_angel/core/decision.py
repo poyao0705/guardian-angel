@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 class DecisionStatus(StrEnum):
     """Enumeration of possible decision statuses."""
+
     ALLOW = "allow"
     DENY = "deny"
     REQUIRE_APPROVAL = "require_approval"

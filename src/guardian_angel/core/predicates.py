@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TypeAlias, Any, Literal
+from typing import Any, Literal, TypeAlias
 
 Operator = Literal[
     "eq",
@@ -20,6 +20,7 @@ Operator = Literal[
 @dataclass(frozen=True, slots=True)
 class Condition:
     """A single key/op/value comparison."""
+
     key: str
     op: Operator
     value: Any = None
@@ -29,18 +30,21 @@ class Condition:
 @dataclass(frozen=True, slots=True)
 class AllOf:
     """Matches only when every child predicate matches."""
+
     items: tuple["Predicate", ...]
 
 
 @dataclass(frozen=True, slots=True)
 class AnyOf:
     """Matches when at least one child predicate matches."""
+
     items: tuple["Predicate", ...]
 
 
 @dataclass(frozen=True, slots=True)
 class Not:
     """Matches when the child predicate does not match."""
+
     item: "Predicate"
 
 

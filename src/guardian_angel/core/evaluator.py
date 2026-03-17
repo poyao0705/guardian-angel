@@ -26,6 +26,7 @@ def resolve_key(request: ActionRequest, key: str) -> Any:
     The reserved keys ``tool`` and ``request_id`` map to the corresponding
     top-level fields; everything else is looked up in ``attributes``.
     """
+
     if key == "tool":
         return request.tool
     if key == "request_id":
@@ -35,6 +36,7 @@ def resolve_key(request: ActionRequest, key: str) -> Any:
 
 def evaluate_condition(request: ActionRequest, condition: Condition) -> bool:
     """Apply a single condition's operator against resolved request values."""
+
     actual = resolve_key(request, condition.key)
     expected = (
         resolve_key(request, condition.value_from)
@@ -50,6 +52,7 @@ def evaluate_condition(request: ActionRequest, condition: Condition) -> bool:
 
 def evaluate_predicate(request: ActionRequest, predicate: Predicate) -> bool:
     """Recursively evaluate a predicate tree against the request."""
+
     if isinstance(predicate, Condition):
         return evaluate_condition(request, predicate)
     if isinstance(predicate, AllOf):

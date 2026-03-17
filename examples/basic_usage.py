@@ -1,7 +1,7 @@
 """Basic usage: build rules in code with condition, all, any, not, and value_from."""
 
 from guardian_angel import ActionRequest, DecisionStatus, GuardianAngel, Rule
-from guardian_angel.rule import AllOf, AnyOf, Condition, Not
+from guardian_angel.core.rule import AllOf, AnyOf, Condition, Not
 
 rules = [
     Rule(

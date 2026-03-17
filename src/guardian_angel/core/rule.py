@@ -2,12 +2,11 @@ from __future__ import annotations
 
 from typing import Any
 
-from guardian_angel.decision import DecisionStatus
+from .decision import DecisionStatus
 from .evaluator import evaluate_predicate, resolve_key
 from .predicates import AllOf, AnyOf, Condition, Not, Operator, Predicate
 from .request import ActionRequest
 
-# Re-export predicate types so callers can do `from guardian_angel.rule import Condition, ...`
 __all__ = ["Rule", "Condition", "AllOf", "AnyOf", "Not", "Predicate", "Operator"]
 
 

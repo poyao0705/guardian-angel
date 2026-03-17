@@ -4,8 +4,8 @@ import tempfile
 import pytest
 
 from guardian_angel import InvalidPolicyError, Rule
-from guardian_angel.rule import AllOf, AnyOf, Condition, Not
-from guardian_angel.yaml_loader import load_policy_file
+from guardian_angel.core.rule import AllOf, AnyOf, Condition, Not
+from guardian_angel.core.yaml_loader import load_policy_file
 
 
 def _write_yaml(content: str) -> str:

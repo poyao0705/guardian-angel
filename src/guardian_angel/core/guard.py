@@ -37,11 +37,13 @@ class GuardianAngel:
     @classmethod
     def from_yaml(cls, path: str) -> GuardianAngel:
         """Create a GuardianAngel instance from a YAML policy file."""
+
         rules = load_policy_file(path)
         return cls(rules=rules)
 
     def authorize(self, request):
         """Evaluate an ActionRequest against loaded rules and return a Decision."""
+
         return self.engine.evaluate(request)
 
     def tool(self, name: str):
@@ -53,4 +55,5 @@ class GuardianAngel:
             def delete_resource(resource_id, *, attributes=None):
                 ...
         """
+
         return make_tool_decorator(self, name)
