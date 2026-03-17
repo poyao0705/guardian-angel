@@ -225,31 +225,35 @@ Behavior:
 
 The decorator routes `require_approval` decisions through the handler automatically.
 
-Two reserved keyword arguments pass policy context into the decorator — use `__guard_attributes__` for the policy attribute dict and `__guard_request_id__` for the tracing ID. Using dunder names avoids clashing with your own function arguments (e.g. an `attributes` param that means something different to your tool):
+Policy context is passed via a single `guard_ctx` keyword argument using the `GuardContext` object. This avoids collisions with your tool's own arguments:
 
 ```python
+from guardian_angel import GuardContext
+
 # Sync decorator — for sync functions + sync handler
 @guard.tool(name="resource.update")
-def update_resource(resource_id, *, __guard_attributes__=None, __guard_request_id__=None):
+def update_resource(resource_id, *, guard_ctx: GuardContext | None = None):
     return {"updated": True, "resource_id": resource_id}
 
 update_resource(
     "doc-1",
-    __guard_attributes__={"resource.environment": "prod", "subject.role": "developer"},
-    __guard_request_id__="req-1",
+    guard_ctx=GuardContext(
+        attributes={"resource.environment": "prod", "subject.role": "developer"},
+        request_id="req-1",
+    ),
 )
 
 # Async decorator — for async functions, works with sync or async handler
 @guard.async_tool(name="resource.update")
-async def update_resource(resource_id, *, __guard_attributes__=None, __guard_request_id__=None):
+async def update_resource(resource_id, *, guard_ctx: GuardContext | None = None):
     return {"updated": True, "resource_id": resource_id}
 ```
 
-Because the reserved kwargs use dunder names, your tool can freely have its own `attributes` or `request_id` arguments without collision:
+Because all policy context lives in a dedicated object, your tool can freely use any argument names without collision:
 
 ```python
 @guard.tool(name="html.render")
-def render(tag: str, attributes: dict, *, __guard_attributes__=None):
+def render(tag: str, attributes: dict, *, guard_ctx: GuardContext | None = None):
     # `attributes` here is HTML attributes — no clash with policy context
     ...
 ```

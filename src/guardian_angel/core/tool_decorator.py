@@ -7,13 +7,18 @@ from datetime import datetime, timezone
 from .approval import ApprovalRequest, ApprovalStatus
 from .decision import Decision, DecisionStatus
 from .exceptions import ApprovalRequiredError, PolicyDeniedError
-from .request import ActionRequest
+from .request import ActionRequest, GuardContext
 
 
 def _build_request_and_evaluate(guard, name, kwargs):
     """Shared logic: build an ActionRequest, evaluate policy, return (decision, request)."""
-    attributes = kwargs.get("__guard_attributes__") or {}
-    request_id = kwargs.get("__guard_request_id__")
+    ctx = kwargs.get("guard_ctx")
+    if isinstance(ctx, GuardContext):
+        attributes = ctx.attributes
+        request_id = ctx.request_id
+    else:
+        attributes = {}
+        request_id = None
 
     request = ActionRequest(
         tool=name,

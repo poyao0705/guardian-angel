@@ -10,6 +10,7 @@ from guardian_angel import (
     ApprovalStatus,
     DecisionStatus,
     GuardConfig,
+    GuardContext,
     GuardianAngel,
     PolicyDeniedError,
 )
@@ -137,24 +138,26 @@ print("=== 4. Use the same guard in a tool wrapper ===\n")
 
 
 @guard.tool(name="resource.update")
-def update_resource(resource_id: str, *, __guard_attributes__=None, __guard_request_id__=None):
+def update_resource(resource_id: str, *, guard_ctx: GuardContext | None = None):
     return {
         "updated": True,
         "resource_id": resource_id,
-        "request_id": __guard_request_id__,
-        "attributes": __guard_attributes__ or {},
+        "request_id": guard_ctx.request_id if guard_ctx else None,
+        "attributes": guard_ctx.attributes if guard_ctx else {},
     }
 
 
 tool_result = update_resource(
     "doc-777",
-    __guard_request_id__="req-pipeline-005",
-    __guard_attributes__={
-        "resource.environment": "prod",
-        "context.change_type": "schema",
-        "context.risk_score": 8,
-        "subject.role": "developer",
-    },
+    guard_ctx=GuardContext(
+        request_id="req-pipeline-005",
+        attributes={
+            "resource.environment": "prod",
+            "context.change_type": "schema",
+            "context.risk_score": 8,
+            "subject.role": "developer",
+        },
+    ),
 )
 print(f"decorated tool result: {tool_result}")
 print()
@@ -164,20 +167,22 @@ print("=== 5. Denial still blocks execution ===\n")
 
 
 @guard.tool(name="resource.delete")
-def delete_resource(resource_id: str, *, __guard_attributes__=None, __guard_request_id__=None):
-    _ = (__guard_attributes__, __guard_request_id__)
+def delete_resource(resource_id: str, *, guard_ctx: GuardContext | None = None):
+    _ = guard_ctx
     return {"deleted": True, "resource_id": resource_id}
 
 
 try:
     delete_resource(
         "doc-888",
-        __guard_request_id__="req-pipeline-006",
-        __guard_attributes__={
-            "subject.tenant_id": "acme",
-            "resource.tenant_id": "globex",
-            "resource.environment": "prod",
-        },
+        guard_ctx=GuardContext(
+            request_id="req-pipeline-006",
+            attributes={
+                "subject.tenant_id": "acme",
+                "resource.tenant_id": "globex",
+                "resource.environment": "prod",
+            },
+        ),
     )
 except PolicyDeniedError as exc:
     print(f"blocked delete: {exc}")

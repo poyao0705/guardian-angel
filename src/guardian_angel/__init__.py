@@ -18,7 +18,7 @@ from .core.exceptions import (
 )
 from .core.guard import GuardianAngel
 from .core.policy_engine import PolicyEvaluator
-from .core.request import ActionRequest
+from .core.request import ActionRequest, GuardContext
 from .core.rule import Rule
 
 __all__ = [
@@ -34,6 +34,7 @@ __all__ = [
     "Decision",
     "EvaluationError",
     "GuardConfig",
+    "GuardContext",
     "GuardianAngel",
     "GuardianAngelError",
     "ApprovalRequiredError",

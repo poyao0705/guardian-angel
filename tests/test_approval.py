@@ -12,6 +12,7 @@ from guardian_angel import (
     ApprovalResponse,
     ApprovalStatus,
     DecisionStatus,
+    GuardContext,
     GuardianAngel,
     PolicyDeniedError,
     Rule,
@@ -421,12 +422,12 @@ class TestToolDecoratorWithApproval:
         )
 
         @guard.tool(name="deploy")
-        def deploy(target, *, __guard_request_id__=None):
+        def deploy(target, *, guard_ctx=None):
             assert target == "prod"
-            assert __guard_request_id__ == "tool-req-1"
+            assert guard_ctx.request_id == "tool-req-1"
             return "deployed"
 
-        deploy("prod", __guard_request_id__="tool-req-1")
+        deploy("prod", guard_ctx=GuardContext(request_id="tool-req-1"))
         assert captured[0].approval_id
         assert captured[0].action_request.request_id == "tool-req-1"
         assert captured[0].action_request.tool == "deploy"

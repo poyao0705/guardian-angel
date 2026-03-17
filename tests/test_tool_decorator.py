@@ -4,6 +4,7 @@ from guardian_angel import (
     ApprovalRequiredError,
     DecisionStatus,
     GuardConfig,
+    GuardContext,
     GuardianAngel,
     PolicyDeniedError,
     Rule,
@@ -68,16 +69,16 @@ class TestToolDecorator:
         )
 
         @guard.tool(name="deploy")
-        def deploy(target, *, __guard_attributes__=None):
-            _ = (target, __guard_attributes__)
+        def deploy(target, *, guard_ctx: GuardContext | None = None):
+            _ = (target, guard_ctx)
             return "deployed"
 
         # Should be blocked when resource.environment=prod
         with pytest.raises(PolicyDeniedError):
-            deploy("app", __guard_attributes__={"resource.environment": "prod"})
+            deploy("app", guard_ctx=GuardContext(attributes={"resource.environment": "prod"}))
 
         # Should be allowed when resource.environment=staging (no matching rule)
-        result = deploy("app", __guard_attributes__={"resource.environment": "staging"})
+        result = deploy("app", guard_ctx=GuardContext(attributes={"resource.environment": "staging"}))
         assert result == "deployed"
 
     def test_request_id_is_passed_into_request(self):
@@ -91,15 +92,17 @@ class TestToolDecorator:
         )
 
         @guard.tool(name="github.pr")
-        def merge_pr(pr_id, *, __guard_attributes__=None, __guard_request_id__=None):
-            _ = (pr_id, __guard_attributes__, __guard_request_id__)
+        def merge_pr(pr_id, *, guard_ctx: GuardContext | None = None):
+            _ = (pr_id, guard_ctx)
             return "merged"
 
         with pytest.raises(PolicyDeniedError):
             merge_pr(
                 "42",
-                __guard_request_id__="req-42",
-                __guard_attributes__={"context.risk_level": "high"},
+                guard_ctx=GuardContext(
+                    request_id="req-42",
+                    attributes={"context.risk_level": "high"},
+                ),
             )
 
     def test_decorator_preserves_function_name(self):

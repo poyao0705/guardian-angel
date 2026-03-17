@@ -5,6 +5,18 @@ from typing import Any
 from .exceptions import RequestValidationError
 
 
+@dataclass(frozen=True, slots=True)
+class GuardContext:
+    """Policy context passed to ``@guard.tool()`` decorated functions.
+
+    Use ``guard_ctx=GuardContext(...)`` to supply policy attributes and a
+    request ID without colliding with your tool's own arguments.
+    """
+
+    attributes: dict[str, Any] = field(default_factory=dict)
+    request_id: str | None = None
+
+
 @dataclass(slots=True)
 class ActionRequest:
     """Canonical input for policy evaluation.

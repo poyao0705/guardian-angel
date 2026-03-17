@@ -16,6 +16,7 @@ from guardian_angel import (
     DecisionSource,
     DecisionStatus,
     GuardConfig,
+    GuardContext,
     GuardianAngel,
     PolicyDeniedError,
     Rule,
@@ -326,10 +327,10 @@ class TestAsyncToolDecorator:
         )
 
         @guard.async_tool(name="deploy")
-        async def deploy(target, *, __guard_request_id__=None):
-            return f"deployed {target} {__guard_request_id__}"
+        async def deploy(target, *, guard_ctx=None):
+            return f"deployed {target} {guard_ctx.request_id if guard_ctx else None}"
 
-        await deploy("prod", __guard_request_id__="async-tool-req-1")
+        await deploy("prod", guard_ctx=GuardContext(request_id="async-tool-req-1"))
         assert captured[0].approval_id
         assert captured[0].action_request.request_id == "async-tool-req-1"
         assert captured[0].action_request.tool == "deploy"
