@@ -1,3 +1,4 @@
+from .core.approval import ApprovalHandler, ApprovalRequest, ApprovalResponse, ApprovalStatus
 from .core.decision import DecisionStatus, Decision
 from .core.exceptions import (
     GuardianAngelError,
@@ -11,6 +12,10 @@ from .core.request import ActionRequest
 from .core.rule import Rule
 
 __all__ = [
+    "ApprovalHandler",
+    "ApprovalRequest",
+    "ApprovalResponse",
+    "ApprovalStatus",
     "DecisionStatus",
     "ActionRequest",
     "Decision",
