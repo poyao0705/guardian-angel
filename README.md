@@ -1,8 +1,8 @@
-# GuardianAngel
+# Guardian Angel
 
 **A lightweight Python SDK for governing AI agent tool execution.**
 
-GuardianAngel intercepts agent actions, evaluates policy, and returns **allow**, **deny**, or **require_approval** — before the tool runs.
+Guardian Angel intercepts agent actions, evaluates policy, and returns **allow**, **deny**, or **require_approval** — before the tool runs.
 
 ## Install
 
