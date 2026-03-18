@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import dataclasses
+import json
 
 import yaml
 
@@ -16,7 +17,7 @@ _CONDITION_FIELDS = {f.name for f in dataclasses.fields(Condition)}
 _LOGICAL_PREDICATE_FIELDS = ("all", "any", "not", "unless")
 
 
-def load_policy_file(path: str) -> list[Rule]:
+def load_yaml_policy_file(path: str) -> list[Rule]:
     """Load a YAML policy file and return a list of Rule objects.
 
     Raises InvalidPolicyError on missing/malformed content.
@@ -29,6 +30,41 @@ def load_policy_file(path: str) -> list[Rule]:
         raise InvalidPolicyError(f"Policy file not found: {path}") from exc
     except yaml.YAMLError as exc:
         raise InvalidPolicyError(f"Malformed YAML in {path}: {exc}") from exc
+
+    return _parse_rules(data)
+
+
+# Backwards-compatible alias
+load_policy_file = load_yaml_policy_file
+
+
+def load_json_policy_file(path: str) -> list[Rule]:
+    """Load a JSON policy file and return a list of Rule objects.
+
+    Raises InvalidPolicyError on missing/malformed content.
+    """
+
+    try:
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+    except FileNotFoundError as exc:
+        raise InvalidPolicyError(f"Policy file not found: {path}") from exc
+    except json.JSONDecodeError as exc:
+        raise InvalidPolicyError(f"Malformed JSON in {path}: {exc}") from exc
+
+    return _parse_rules(data)
+
+
+def load_json_policy(raw_json: str) -> list[Rule]:
+    """Parse a JSON string and return a list of Rule objects.
+
+    Raises InvalidPolicyError on malformed content.
+    """
+
+    try:
+        data = json.loads(raw_json)
+    except json.JSONDecodeError as exc:
+        raise InvalidPolicyError(f"Malformed JSON: {exc}") from exc
 
     return _parse_rules(data)
 

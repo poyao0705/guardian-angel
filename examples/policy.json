@@ -1,0 +1,48 @@
+{
+  "rules": [
+    {
+      "name": "deny_cross_tenant_delete",
+      "tool": "resource.delete",
+      "decision": "deny",
+      "when": {
+        "key": "subject.tenant_id",
+        "op": "ne",
+        "value_from": "resource.tenant_id"
+      }
+    },
+    {
+      "name": "deny_risky_prod_delete",
+      "tool": "resource.delete",
+      "decision": "deny",
+      "all": [
+        { "key": "resource.environment", "op": "eq", "value": "prod" },
+        {
+          "any": [
+            { "key": "context.risk_level", "op": "eq", "value": "high" },
+            { "key": "subject.role", "op": "ne", "value": "admin" }
+          ]
+        },
+        { "not": { "key": "agent.trust_level", "op": "eq", "value": "high" } }
+      ]
+    },
+    {
+      "name": "require_prod_update_approval",
+      "tool": "resource.update",
+      "decision": "require_approval",
+      "all": [
+        { "key": "resource.environment", "op": "eq", "value": "prod" },
+        {
+          "any": [
+            {
+              "key": "context.change_type",
+              "op": "in",
+              "value": ["schema", "permissions"]
+            },
+            { "key": "context.risk_score", "op": "gte", "value": 7 }
+          ]
+        },
+        { "not": { "key": "subject.role", "op": "eq", "value": "sre" } }
+      ]
+    }
+  ]
+}

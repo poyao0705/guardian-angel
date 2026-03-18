@@ -15,6 +15,11 @@ from .core.exceptions import (
 )
 from .core.guard import GuardianAngel
 from .core.policy_engine import PolicyEvaluator
+from .core.policy_loader import (
+    load_json_policy,
+    load_json_policy_file,
+    load_yaml_policy_file,
+)
 from .core.request import ActionRequest, GuardContext
 from .core.rule import Rule
 
@@ -37,4 +42,7 @@ __all__ = [
     "PolicyEvaluator",
     "RequestValidationError",
     "Rule",
+    "load_json_policy",
+    "load_json_policy_file",
+    "load_yaml_policy_file",
 ]

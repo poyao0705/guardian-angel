@@ -6,9 +6,9 @@ from .config import GuardConfig
 from .decision import DecisionStatus
 from .exceptions import ApprovalRequiredError, PolicyDeniedError
 from .policy_engine import PolicyEngine, PolicyEvaluator
+from .policy_loader import load_json_policy_file, load_yaml_policy_file
 from .request import ActionRequest, GuardContext
 from .rule import Rule
-from .yaml_loader import load_policy_file
 
 
 class GuardianAngel:
@@ -56,7 +56,19 @@ class GuardianAngel:
     ) -> GuardianAngel:
         """Create a GuardianAngel instance from a YAML policy file."""
 
-        rules = load_policy_file(path)
+        rules = load_yaml_policy_file(path)
+        return cls(rules=rules, config=config)
+
+    @classmethod
+    def from_json(
+        cls,
+        path: str,
+        *,
+        config: GuardConfig | None = None,
+    ) -> GuardianAngel:
+        """Create a GuardianAngel instance from a JSON policy file."""
+
+        rules = load_json_policy_file(path)
         return cls(rules=rules, config=config)
 
     def authorize(self, request):

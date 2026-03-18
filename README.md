@@ -30,11 +30,38 @@ rules:
         value: high
 ```
 
+```json
+// policy.json
+{
+  "rules": [
+    {
+      "name": "block_risky_delete",
+      "tool": "resource.delete",
+      "decision": "deny",
+      "all": [
+        { "key": "resource.environment", "op": "eq", "value": "prod" },
+        { "key": "context.risk_level", "op": "eq", "value": "high" }
+      ]
+    }
+  ]
+}
+```
+
 ```python
 from guardian_angel import ActionRequest, DecisionStatus, GuardConfig, GuardianAngel
 
+# From YAML
 guard = GuardianAngel.from_yaml(
     "policy.yaml",
+    config=GuardConfig(
+        default_decision=DecisionStatus.ALLOW,
+        on_evaluation_error=DecisionStatus.DENY,
+    ),
+)
+
+# Or from JSON
+guard = GuardianAngel.from_json(
+    "policy.json",
     config=GuardConfig(
         default_decision=DecisionStatus.ALLOW,
         on_evaluation_error=DecisionStatus.DENY,
@@ -73,10 +100,11 @@ guardian-angel --version
 - **Cross-field comparison** — `value_from` to compare one attribute against another
 - **Approval signal** — rules returning `require_approval` raise `ApprovalRequiredError`, letting the calling framework handle human-in-the-loop approval in whatever way is native to it (LangGraph interrupt, CrewAI human input, webhook, etc.)
 - **Tool invocation** — `guard.invoke()` (sync) and `guard.ainvoke()` (async) for policy enforcement on any function without decorators
-- **YAML or Python** — define rules in files or construct `Rule` objects in code
+- **YAML, JSON, or Python** — define rules in files (`from_yaml`, `from_json`) or construct `Rule` objects in code
 - **CLI** — evaluate policies from the command line with colored output
 
 See [`examples/`](examples/) for more.
+For YAML policies see [`examples/yaml_policy_example.py`](examples/yaml_policy_example.py); for JSON see [`examples/json_policy_example.py`](examples/json_policy_example.py).
 If you want one end-to-end reference that wires everything together, start with [`examples/complete_pipeline_example.py`](examples/complete_pipeline_example.py).
 
 ## How It Works

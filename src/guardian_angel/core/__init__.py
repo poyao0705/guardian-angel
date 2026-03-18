@@ -8,9 +8,14 @@ from .exceptions import (
 )
 from .guard import GuardianAngel
 from .policy_engine import PolicyEngine, PolicyEvaluator
+from .policy_loader import (
+    load_json_policy,
+    load_json_policy_file,
+    load_policy_file,
+    load_yaml_policy_file,
+)
 from .request import ActionRequest
 from .rule import AllOf, AnyOf, Condition, Not, Operator, Predicate, Rule
-from .yaml_loader import load_policy_file
 
 __all__ = [
     "ActionRequest",
@@ -33,5 +38,8 @@ __all__ = [
     "PolicyEvaluator",
     "Predicate",
     "Rule",
+    "load_json_policy",
+    "load_json_policy_file",
     "load_policy_file",
+    "load_yaml_policy_file",
 ]
