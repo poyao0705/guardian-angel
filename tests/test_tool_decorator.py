@@ -109,21 +109,16 @@ class TestInvoke:
         )
         assert result == "deployed app"
 
-    def test_invoke_approval_backend_failure_allows(self):
-        class BrokenHandler:
-            def submit(self, request):
-                raise RuntimeError("down")
-
+    def test_invoke_require_approval_raises(self):
         guard = GuardianAngel(
             rules=[Rule(name="approve", tool="deploy", decision=DecisionStatus.REQUIRE_APPROVAL)],
-            approval_handler=BrokenHandler(),
-            config=GuardConfig(on_approval_error=DecisionStatus.ALLOW),
         )
 
         def deploy(target):
             return f"deployed {target}"
 
-        assert guard.invoke(deploy, "prod", guard_ctx=GuardContext(tool="deploy")) == "deployed prod"
+        with pytest.raises(ApprovalRequiredError):
+            guard.invoke(deploy, "prod", guard_ctx=GuardContext(tool="deploy"))
 
     def test_invoke_protected_tool_no_match_requires_approval(self):
         guard = GuardianAngel(

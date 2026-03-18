@@ -1,12 +1,9 @@
 """Use guard.invoke() with YAML predicates."""
 
 import os
-from datetime import datetime, timezone
 
 from guardian_angel import (
-    ApprovalRequest,
-    ApprovalResponse,
-    ApprovalStatus,
+    ApprovalRequiredError,
     DecisionStatus,
     GuardConfig,
     GuardContext,
@@ -15,31 +12,14 @@ from guardian_angel import (
 )
 
 
-# A simple handler that auto-approves every request.
-class AutoApproveHandler:
-    def submit(self, request: ApprovalRequest) -> ApprovalResponse:
-        print(
-            f"   [auto-approve] approval_id={request.approval_id} "
-            f"action_request_id={request.action_request.request_id}"
-        )
-        return ApprovalResponse(
-            approval_id=request.approval_id,
-            status=ApprovalStatus.APPROVED,
-            approved_by="auto",
-            responded_at=datetime.now(tz=timezone.utc),
-        )
-
-
-# Load policy from YAML — with an approval handler so require_approval
-# decisions are routed through it instead of raising ApprovalRequiredError.
+# Load policy from YAML.  When a rule returns REQUIRE_APPROVAL the guard
+# raises ApprovalRequiredError — your framework handles the rest.
 policy_path = os.path.join(os.path.dirname(__file__), "policy.yaml")
 guard = GuardianAngel.from_yaml(
     policy_path,
-    approval_handler=AutoApproveHandler(),
     config=GuardConfig(
         default_decision=DecisionStatus.ALLOW,
         on_evaluation_error=DecisionStatus.DENY,
-        on_approval_error=DecisionStatus.DENY,
     ),
 )
 
@@ -116,20 +96,24 @@ result = guard.invoke(
 )
 print(f"   Result: {result}\n")
 
-# 4. Require approval from the YAML policy — auto-approved by the handler.
-print("4. Prod update requiring approval (auto-approved via handler):")
-result = guard.invoke(
-    update_resource,
-    "doc-999",
-    guard_ctx=GuardContext(
-        tool="resource.update",
-        request_id="req-104",
-        attributes={
-            "resource.environment": "prod",
-            "context.change_type": "permissions",
-            "context.risk_score": 5,
-            "subject.role": "developer",
-        },
-    ),
-)
-print(f"   Result: {result}")
+# 4. Require approval from the YAML policy — raises ApprovalRequiredError.
+print("4. Prod update requiring approval (raises ApprovalRequiredError):")
+try:
+    result = guard.invoke(
+        update_resource,
+        "doc-999",
+        guard_ctx=GuardContext(
+            tool="resource.update",
+            request_id="req-104",
+            attributes={
+                "resource.environment": "prod",
+                "context.change_type": "permissions",
+                "context.risk_score": 5,
+                "subject.role": "developer",
+            },
+        ),
+    )
+    print(f"   Result: {result}")
+except ApprovalRequiredError as e:
+    print(f"   ApprovalRequiredError: {e}")
+    print(f"   rule={e.decision.rule_name}")

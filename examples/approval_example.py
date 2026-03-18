@@ -1,14 +1,15 @@
-"""Approval workflow: plug in a custom handler for human-in-the-loop approval."""
+"""Approval workflow: GuardianAngel raises ApprovalRequiredError for REQUIRE_APPROVAL rules.
+
+The calling code (your framework, webhook handler, etc.) decides *how* to
+handle the approval — block on user input, raise an interrupt, send a Slack
+message, etc.  GuardianAngel only signals that approval is needed.
+"""
 
 import os
-from datetime import datetime, timezone
 
 from guardian_angel import (
     ActionRequest,
-    ApprovalRequest,
     ApprovalRequiredError,
-    ApprovalResponse,
-    ApprovalStatus,
     DecisionStatus,
     GuardConfig,
     GuardContext,
@@ -16,88 +17,25 @@ from guardian_angel import (
     PolicyDeniedError,
 )
 
-
 # ---------------------------------------------------------------------------
-# 1. Define a custom ApprovalHandler
-# ---------------------------------------------------------------------------
-# Any class with a `submit(ApprovalRequest) -> ApprovalResponse` method works.
-# In production this could call Slack, send an email, or insert a database row.
-
-
-class ConsoleApprovalHandler:
-    """Asks for approval on the terminal (stdin)."""
-
-    def submit(self, request: ApprovalRequest) -> ApprovalResponse:
-        print(f"   [approval] tool={request.action_request.tool}")
-        print(f"   [approval] approval_id={request.approval_id}")
-        print(f"   [approval] action_request_id={request.action_request.request_id}")
-        print(f"   [approval] rule={request.decision.rule_name}")
-        print(f"   [approval] reason={request.decision.reason}")
-        answer = input("   Approve? (y/n): ").strip().lower()
-        return ApprovalResponse(
-            approval_id=request.approval_id,
-            status=ApprovalStatus.APPROVED if answer == "y" else ApprovalStatus.REJECTED,
-            approved_by="console-user",
-            responded_at=datetime.now(tz=timezone.utc),
-        )
-
-
-class AutoApproveHandler:
-    """Always approves — useful for testing."""
-
-    def submit(self, request: ApprovalRequest) -> ApprovalResponse:
-        print(
-            f"   [auto-approve] approval_id={request.approval_id} "
-            f"action_request_id={request.action_request.request_id}"
-        )
-        return ApprovalResponse(
-            approval_id=request.approval_id,
-            status=ApprovalStatus.APPROVED,
-            approved_by="auto",
-            responded_at=datetime.now(tz=timezone.utc),
-        )
-
-
-class AutoRejectHandler:
-    """Always rejects — useful for testing."""
-
-    def submit(self, request: ApprovalRequest) -> ApprovalResponse:
-        print(
-            f"   [auto-reject] approval_id={request.approval_id} "
-            f"action_request_id={request.action_request.request_id}"
-        )
-        return ApprovalResponse(
-            approval_id=request.approval_id,
-            status=ApprovalStatus.REJECTED,
-            approved_by="auto",
-            reason="rejected by policy",
-            responded_at=datetime.now(tz=timezone.utc),
-        )
-
-
-# ---------------------------------------------------------------------------
-# 2. Load policy & create guard with a handler
+# 1. Load policy & create guard
 # ---------------------------------------------------------------------------
 
 policy_path = os.path.join(os.path.dirname(__file__), "policy.yaml")
 guard = GuardianAngel.from_yaml(
     policy_path,
-    approval_handler=AutoApproveHandler(),
     config=GuardConfig(
         default_decision=DecisionStatus.ALLOW,
         on_evaluation_error=DecisionStatus.DENY,
-        on_approval_error=DecisionStatus.DENY,
     ),
 )
 
-
 # ---------------------------------------------------------------------------
-# 3. Using request_approval() directly
+# 2. authorize() returns a Decision — caller inspects it
 # ---------------------------------------------------------------------------
 
-print("=== request_approval() examples ===\n")
+print("=== authorize() examples ===\n")
 
-# This request triggers "require_prod_update_approval" in policy.yaml.
 req = ActionRequest(
     tool="resource.update",
     request_id="req-301",
@@ -109,50 +47,34 @@ req = ActionRequest(
     },
 )
 
-print("1. Require-approval request (auto-approved):")
-response = guard.request_approval(req)
-print(
-    f"   approval_id={response.approval_id} "
-    f"status={response.status} approved_by={response.approved_by}\n"
+decision = guard.authorize(req)
+print(f"1. Decision for resource.update: status={decision.status} rule={decision.rule_name}\n")
+
+# Denied request
+decision = guard.authorize(
+    ActionRequest(
+        tool="resource.delete",
+        request_id="req-302",
+        attributes={
+            "subject.tenant_id": "acme",
+            "resource.tenant_id": "globex",
+        },
+    )
 )
+print(f"2. Decision for cross-tenant delete: status={decision.status}\n")
 
-# Denied requests raise PolicyDeniedError.
-print("2. Denied request:")
-try:
-    guard.request_approval(
-        ActionRequest(
-            tool="resource.delete",
-            request_id="req-302",
-            attributes={
-                "subject.tenant_id": "acme",
-                "resource.tenant_id": "globex",
-            },
-        )
-    )
-except PolicyDeniedError as e:
-    print(f"   PolicyDeniedError: {e}\n")
+# Allowed request
+decision = guard.authorize(
+    ActionRequest(tool="resource.read", request_id="req-303")
+)
+print(f"3. Decision for resource.read: status={decision.status}\n")
 
-# Allowed requests raise ValueError (no approval needed).
-print("3. Already-allowed request:")
-try:
-    guard.request_approval(
-        ActionRequest(tool="resource.read", request_id="req-303")
-    )
-except ValueError as e:
-    print(f"   ValueError: {e}\n")
 
 # ---------------------------------------------------------------------------
-# 4. Using guard.invoke() with approval
+# 3. invoke() raises ApprovalRequiredError when approval is needed
 # ---------------------------------------------------------------------------
 
-print("=== guard.invoke() with approval ===\n")
-
-# Switch to a reject handler to show the denied path.
-guard_reject = GuardianAngel.from_yaml(
-    policy_path,
-    approval_handler=AutoRejectHandler(),
-    config=GuardConfig(on_approval_error=DecisionStatus.DENY),
-)
+print("=== guard.invoke() examples ===\n")
 
 
 def update_resource(resource_id):
@@ -172,45 +94,32 @@ approval_ctx = GuardContext(
     attributes=approval_attrs,
 )
 
-print("4. Auto-approved → function executes:")
-result = guard.invoke(update_resource, "doc-1", guard_ctx=approval_ctx)
-print(f"   Result: {result}\n")
-
-print("5. Auto-rejected → PolicyDeniedError:")
+print("4. Require-approval → ApprovalRequiredError:")
 try:
-    guard_reject.invoke(
+    guard.invoke(update_resource, "doc-1", guard_ctx=approval_ctx)
+except ApprovalRequiredError as e:
+    print(f"   ApprovalRequiredError: {e}")
+    print(f"   rule={e.decision.rule_name}")
+    # Here your framework would pause and request human approval.
+    print()
+
+print("5. Denied → PolicyDeniedError:")
+try:
+    guard.invoke(
         update_resource,
         "doc-2",
         guard_ctx=GuardContext(
-            tool="resource.update",
+            tool="resource.delete",
             request_id="req-305",
-            attributes=approval_attrs,
+            attributes={
+                "subject.tenant_id": "acme",
+                "resource.tenant_id": "globex",
+            },
         ),
     )
 except PolicyDeniedError as e:
     print(f"   PolicyDeniedError: {e}\n")
 
-# ---------------------------------------------------------------------------
-# 5. No handler → ApprovalRequiredError (original behaviour)
-# ---------------------------------------------------------------------------
-
-print("=== No handler (raises ApprovalRequiredError) ===\n")
-
-guard_no_handler = GuardianAngel.from_yaml(
-    policy_path,
-    config=GuardConfig(on_evaluation_error=DecisionStatus.DENY),
-)
-
-print("6. No handler registered:")
-try:
-    guard_no_handler.invoke(
-        update_resource,
-        "doc-3",
-        guard_ctx=GuardContext(
-            tool="resource.update",
-            request_id="req-306",
-            attributes=approval_attrs,
-        ),
-    )
-except ApprovalRequiredError as e:
-    print(f"   ApprovalRequiredError: {e}\n")
+print("6. Allowed → function executes:")
+result = guard.invoke(update_resource, "doc-3")
+print(f"   Result: {result}\n")

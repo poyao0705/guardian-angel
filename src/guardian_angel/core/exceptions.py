@@ -29,14 +29,5 @@ class EvaluationError(GuardianAngelError):
     """Raised when a predicate or rule evaluation cannot be completed safely."""
 
 
-class ApprovalBackendError(GuardianAngelError):
-    """Raised when the approval backend fails and no response is available."""
-
-    def __init__(self, decision, cause: Exception):
-        self.decision = decision
-        self.cause = cause
-        super().__init__(decision.reason or "Approval backend failure")
-
-
 class RequestValidationError(GuardianAngelError):
     """Raised when request input is malformed."""

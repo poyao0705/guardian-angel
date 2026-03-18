@@ -1,13 +1,10 @@
 """Complete pipeline: YAML policy load, GuardConfig, authorization, and approval."""
 
 import os
-from datetime import datetime, timezone
 
 from guardian_angel import (
     ActionRequest,
-    ApprovalRequest,
-    ApprovalResponse,
-    ApprovalStatus,
+    ApprovalRequiredError,
     DecisionStatus,
     GuardConfig,
     GuardContext,
@@ -16,38 +13,13 @@ from guardian_angel import (
 )
 
 
-class AuditApproveHandler:
-    """Example approval backend that auto-approves and prints audit context."""
-
-    def submit(self, request: ApprovalRequest) -> ApprovalResponse:
-        print(
-            "   [approval] "
-            f"tool={request.action_request.tool} "
-            f"request_id={request.action_request.request_id} "
-            f"approval_id={request.approval_id}"
-        )
-        print(
-            "   [approval] "
-            f"rule={request.decision.rule_name} "
-            f"reason={request.decision.reason}"
-        )
-        return ApprovalResponse(
-            approval_id=request.approval_id,
-            status=ApprovalStatus.APPROVED,
-            approved_by="audit-bot",
-            responded_at=datetime.now(tz=timezone.utc),
-        )
-
-
 policy_path = os.path.join(os.path.dirname(__file__), "policy.yaml")
 
 guard = GuardianAngel.from_yaml(
     policy_path,
-    approval_handler=AuditApproveHandler(),
     config=GuardConfig(
         default_decision=DecisionStatus.ALLOW,
         on_evaluation_error=DecisionStatus.DENY,
-        on_approval_error=DecisionStatus.DENY,
         protected_tools=frozenset({"resource.archive"}),
         protected_no_match_decision=DecisionStatus.REQUIRE_APPROVAL,
         required_fields=("resource.environment",),
@@ -72,7 +44,7 @@ print("=== 1. Load YAML policy + GuardConfig ===\n")
 print(f"policy={policy_path}")
 print(
     "config="
-    "default_allow + deny_on_eval_error + deny_on_approval_error + "
+    "default_allow + deny_on_eval_error + "
     "protected_resource_archive_requires_approval_on_no_match"
 )
 print()
@@ -112,7 +84,7 @@ print_decision(
 )
 
 
-print("=== 3. Submit an approval request ===\n")
+print("=== 3. Require-approval rule triggers ApprovalRequiredError ===\n")
 
 approval_request = ActionRequest(
     tool="resource.update",
@@ -125,11 +97,11 @@ approval_request = ActionRequest(
     },
 )
 
-approval_response = guard.request_approval(approval_request)
+decision = guard.authorize(approval_request)
 print(
-    "approval result: "
-    f"status={approval_response.status} "
-    f"approved_by={approval_response.approved_by}"
+    "authorize result: "
+    f"status={decision.status} "
+    f"rule={decision.rule_name}"
 )
 print()
 
@@ -141,21 +113,24 @@ def update_resource(resource_id: str):
     return {"updated": True, "resource_id": resource_id}
 
 
-tool_result = guard.invoke(
-    update_resource,
-    "doc-777",
-    guard_ctx=GuardContext(
-        tool="resource.update",
-        request_id="req-pipeline-005",
-        attributes={
-            "resource.environment": "prod",
-            "context.change_type": "schema",
-            "context.risk_score": 8,
-            "subject.role": "developer",
-        },
-    ),
-)
-print(f"invoke result: {tool_result}")
+try:
+    tool_result = guard.invoke(
+        update_resource,
+        "doc-777",
+        guard_ctx=GuardContext(
+            tool="resource.update",
+            request_id="req-pipeline-005",
+            attributes={
+                "resource.environment": "prod",
+                "context.change_type": "schema",
+                "context.risk_score": 8,
+                "subject.role": "developer",
+            },
+        ),
+    )
+    print(f"invoke result: {tool_result}")
+except ApprovalRequiredError as exc:
+    print(f"invoke raised ApprovalRequiredError: {exc}")
 print()
 
 

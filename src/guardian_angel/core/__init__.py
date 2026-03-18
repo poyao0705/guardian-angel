@@ -1,4 +1,4 @@
-from .approval import ApprovalHandler, ApprovalRequest, ApprovalResponse, ApprovalStatus
+from .approval import ApprovalRequest, ApprovalResponse, ApprovalStatus
 from .decision import Decision, DecisionStatus
 from .exceptions import (
     ApprovalRequiredError,
@@ -16,7 +16,6 @@ __all__ = [
     "ActionRequest",
     "AllOf",
     "AnyOf",
-    "ApprovalHandler",
     "ApprovalRequest",
     "ApprovalRequiredError",
     "ApprovalResponse",

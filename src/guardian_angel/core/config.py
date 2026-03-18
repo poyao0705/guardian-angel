@@ -11,7 +11,6 @@ class GuardConfig:
 
     default_decision: DecisionStatus = DecisionStatus.ALLOW
     on_evaluation_error: DecisionStatus = DecisionStatus.DENY
-    on_approval_error: DecisionStatus = DecisionStatus.DENY
     protected_tools: frozenset[str] = field(default_factory=frozenset)
     protected_tool_prefixes: tuple[str, ...] = ()
     protected_no_match_decision: DecisionStatus | None = None
